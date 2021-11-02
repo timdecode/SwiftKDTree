@@ -1,7 +1,8 @@
 import XCTest
 import simd
 
-@testable import SwiftKDTree
+import SwiftKDTree
+import KDTree
 
 extension simd_float3: Vector {
     public typealias Component = Float
@@ -24,7 +25,27 @@ extension simd_float3: Vector {
     }
 }
 
+extension simd_float3: KDTreePoint {
+    public func kdDimension(_ dimension: Int) -> Double {
+        return Double(component(dimension))
+    }
+    
+    public func squaredDistance(to otherPoint: SIMD3<Scalar>) -> Double {
+        return Double( simd.distance_squared(self, otherPoint) )
+    }
+    
+    
+}
+
 final class SwiftKDTreeTests: XCTestCase {
+    var timingPoints: [simd_float3] = []
+    
+    override func setUp() {
+        timingPoints = (0..<100_000).map { _ in
+            return simd_float3.random(in: -1.0...1.0 )
+        }
+    }
+    
     func testExample() throws {
         let points: [simd_float3] = (0..<100).map { _ in
             return simd_float3.random(in: -1.0...1.0 )
@@ -54,4 +75,16 @@ final class SwiftKDTreeTests: XCTestCase {
         XCTAssertTrue( result.count == answer.count )
     }
 
+    func testBersaelor() throws {
+        measure {
+            let kdTree = KDTree(values: timingPoints)
+        }
+    }
+    
+    func testOurs() throws {
+        measure {
+            let kdTree = StaticKDTree(points: timingPoints)
+        }
+    }
 }
+
