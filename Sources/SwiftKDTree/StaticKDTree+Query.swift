@@ -27,7 +27,9 @@ extension StaticKDTree {
             let (nearest, other) = delta > 0 ? (left, right) : (right, left)
             
             // check the best estimate (the closer subTree)
-            self.points(within: radius, of: query, node:  nodes[Int(nearest)], points: &points)
+            if nearest >= 0 {
+                self.points(within: radius, of: query, node:  nodes[Int(nearest)], points: &points)
+            }
             
             // if the search radius intersects the hyperplane of this tree node
             // there could be points in the other subtree
@@ -36,7 +38,9 @@ extension StaticKDTree {
                     points.append(value)
                 }
                 
-                self.points(within: radius, of: query, node: nodes[Int(other)], points: &points)
+                if other >= 0 {
+                    self.points(within: radius, of: query, node: nodes[Int(other)], points: &points)
+                }
             }
             
             break

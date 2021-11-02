@@ -11,31 +11,35 @@ public protocol Vector {
 
 public struct StaticKDTree<Element>
 where Element : Vector {
+    @usableFromInline
     internal var nodes: ContiguousArray<Node>
     
     public var nodeCount: Int { return nodes.count }
     
+    @usableFromInline
     enum Node {
         case leaf
         
         case node(left: Int32, value: Element, dimension: Int, right: Int32)
     }
     
+    @inlinable
     public init(points: [Element]) {
         self.nodes = []
+        self.nodes.reserveCapacity(200_001)
         
         let pointer = UnsafeMutablePointer<Element>.allocate(capacity: points.count)
         
         // copy values from the array
         pointer.initialize(from: points, count: points.count)
         
-        Self.build(values: pointer, start: 0, end: points.count, depth: 0, tree: &self)
+        _ = Self.build(values: pointer, start: 0, end: points.count, depth: 0, tree: &self)
     }
     
-    private static func build( values: UnsafeMutablePointer<Element>, start: Int, end: Int, depth: Int, tree: inout Self ) {
+    @inlinable
+    static func build( values: UnsafeMutablePointer<Element>, start: Int, end: Int, depth: Int, tree: inout Self ) -> Int {
         guard end > start else {
-            tree.nodes.append(.leaf)
-            return
+            return -1
         }
         
         let count = end - start
@@ -44,15 +48,10 @@ where Element : Vector {
         
         if count == 1 {
             let index = tree.nodes.count
-            tree.nodes.append( .leaf ) // we'll replace with a full node in a moment
             
-            let left = Int32(tree.nodes.count)
-            tree.nodes.append( .leaf )
+            tree.nodes.append( .node(left: -1, value: values[start], dimension: component, right: -1) )
             
-            let right = Int32(tree.nodes.count)
-            tree.nodes.append( .leaf )
-            
-            tree.nodes[index] = .node(left: left, value: values[0], dimension: component, right: right)
+            return index
         } else {
             // Split along the median
             var median = start + count / 2
@@ -71,13 +70,13 @@ where Element : Vector {
             let index = tree.nodes.count
             tree.nodes.append( .leaf )
             
-            let left = Int32(tree.nodes.count)
-            build(values: values, start: start, end: median, depth: depth + 1, tree: &tree)
+            let left = build(values: values, start: start, end: median, depth: depth + 1, tree: &tree)
             
-            let right = Int32(tree.nodes.count)
-            build(values: values, start: median + 1, end: end, depth: depth + 1, tree: &tree)
+            let right = build(values: values, start: median + 1, end: end, depth: depth + 1, tree: &tree)
             
-            tree.nodes[index] = .node(left: left, value: medianValue, dimension: component, right: right)
+            tree.nodes[index] = .node(left: Int32(left), value: medianValue, dimension: component, right: Int32(right))
+            
+            return index
         }
     }
     
@@ -90,7 +89,7 @@ where Element : Vector {
     /// - Parameter startIndex: start index of the region of interest
     /// - Parameter endIndex: end index of the region of interest
     /// - Parameter kdDimension: dimension to evaluate
-    private static func quickSelect(targetIndex: Int, values: UnsafeMutablePointer<Element>, startIndex: Int, endIndex: Int, component: Int) {
+    @inlinable static func quickSelect(targetIndex: Int, values: UnsafeMutablePointer<Element>, startIndex: Int, endIndex: Int, component: Int) {
         
         guard endIndex - startIndex > 1 else { return }
         
@@ -121,7 +120,7 @@ where Element : Vector {
     ///   - values: the pointer to the values
     ///   - kdDimension: the dimension sorted over
     /// - Returns: the index of the pivot element in the pointer
-    private static func partitionHoare(_ values: UnsafeMutablePointer<Element>, startIndex lo: Int, endIndex: Int, component: Int) -> Int {
+    @inlinable static func partitionHoare(_ values: UnsafeMutablePointer<Element>, startIndex lo: Int, endIndex: Int, component: Int) -> Int {
         let hi = endIndex - 1
         guard lo < hi else { return lo }
         
@@ -160,9 +159,9 @@ where Element : Vector {
     
 }
 
-fileprivate extension UnsafeMutablePointer {
+internal extension UnsafeMutablePointer {
     @_transparent
-    func swapAt(_ i: Int, _ j: Int) {
+    @inlinable func swapAt(_ i: Int, _ j: Int) {
         let temp = self[i]
         self[i] = self[j]
         self[j] = temp
