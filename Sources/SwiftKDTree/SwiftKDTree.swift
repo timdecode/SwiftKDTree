@@ -6,19 +6,23 @@ public protocol Vector {
     static var dimensions: Int { get }
     
     func component(_ index: Int) -> Component
-    func distance(_ other: Self)
+    func distance(_ other: Self) -> Float
 }
 
 public struct StaticKDTree<Element>
 where Element : Vector {
     private var nodes: ContiguousArray<Node<Element>>
+
+    public var nodeCount: Int { return nodes.count }
     
-    
-    
-    public init() {
-        nodes = []
+    public init(points: [Element]) {
+        self.nodes = []
         
-        //        build( )
+        var points = points
+        
+        points.withUnsafeMutableBufferPointer { buffer in
+            Self.build(values: buffer, depth: 0, tree: &self)
+        }
     }
     
     private static func build( values: UnsafeMutableBufferPointer<Element>, depth: Int, tree: inout Self ) {
@@ -42,10 +46,10 @@ where Element : Vector {
             }
             
             let left = Int32(tree.nodes.count)
-            build(values: .init(rebasing: values.prefix(upTo: median)), depth: depth - 1, tree: &tree)
+            build(values: .init(rebasing: values.prefix(upTo: median)), depth: depth + 1, tree: &tree)
             
             let right = Int32(tree.nodes.count)
-            build(values: .init(rebasing: values.suffix(from: median)), depth: depth - 1, tree: &tree)
+            build(values: .init(rebasing: values.suffix(from: median)), depth: depth + 1, tree: &tree)
             
             tree.nodes.append( .node(left: left, value: medianValue, right: right))
         }
