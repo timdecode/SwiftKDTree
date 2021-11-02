@@ -6,14 +6,20 @@ public protocol Vector {
     static var dimensions: Int { get }
     
     func component(_ index: Int) -> Component
-    func distance(_ other: Self) -> Float
+    func distanceSquared(_ other: Self) -> Component
 }
 
 public struct StaticKDTree<Element>
 where Element : Vector {
-    private var nodes: ContiguousArray<Node<Element>>
+    internal var nodes: ContiguousArray<Node>
 
     public var nodeCount: Int { return nodes.count }
+    
+    enum Node {
+        case leaf
+        
+        case node(left: Int32, value: Element, dimension: Int, right: Int32)
+    }
     
     public init(points: [Element]) {
         self.nodes = []
@@ -26,14 +32,27 @@ where Element : Vector {
     }
     
     private static func build( values: UnsafeMutableBufferPointer<Element>, depth: Int, tree: inout Self ) {
-        // leaf
+        guard !values.isEmpty else {
+            tree.nodes.append(.leaf)
+            return
+        }
+        
+        let component = depth % Element.dimensions
+        
         if values.count == 1 {
+            let index = tree.nodes.count
+            tree.nodes.append( .leaf ) // we'll replace with a full node in a moment
+            
+            let left = Int32(tree.nodes.count)
             tree.nodes.append( .leaf )
+            
+            let right = Int32(tree.nodes.count)
+            tree.nodes.append( .leaf )
+            
+            tree.nodes[index] = .node(left: left, value: values[0], dimension: component, right: right)
         } else {
             // Split along the median
             var median: Int = values.count / 2
-            
-            let component = depth % Element.dimensions
 
             // Partition the elements around the middle index
             quickSelect(targetIndex: median, values: values, component: component)
@@ -45,13 +64,17 @@ where Element : Vector {
                 median -= 1
             }
             
+            // make room for our node
+            let index = tree.nodes.count
+            tree.nodes.append( .leaf )
+            
             let left = Int32(tree.nodes.count)
             build(values: .init(rebasing: values.prefix(upTo: median)), depth: depth + 1, tree: &tree)
             
             let right = Int32(tree.nodes.count)
-            build(values: .init(rebasing: values.suffix(from: median)), depth: depth + 1, tree: &tree)
+            build(values: .init(rebasing: values.suffix(from: median + 1)), depth: depth + 1, tree: &tree)
             
-            tree.nodes.append( .node(left: left, value: medianValue, right: right))
+            tree.nodes[index] = .node(left: left, value: medianValue, dimension: component, right: right)
         }
     }
     
@@ -144,11 +167,7 @@ fileprivate extension UnsafeMutablePointer {
     }
 }
 
-enum Node<Element> {
-    case leaf
-    
-    case node(left: Int32, value: Element, right: Int32)
-}
+
 
 
 
