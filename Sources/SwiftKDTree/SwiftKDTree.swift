@@ -12,7 +12,7 @@ public protocol Vector {
 public struct StaticKDTree<Element>
 where Element : Vector {
     internal var nodes: ContiguousArray<Node>
-
+    
     public var nodeCount: Int { return nodes.count }
     
     enum Node {
@@ -24,22 +24,25 @@ where Element : Vector {
     public init(points: [Element]) {
         self.nodes = []
         
-        var points = points
+        let pointer = UnsafeMutablePointer<Element>.allocate(capacity: points.count)
         
-        points.withUnsafeMutableBufferPointer { buffer in
-            Self.build(values: buffer, depth: 0, tree: &self)
-        }
+        // copy values from the array
+        pointer.initialize(from: points, count: points.count)
+        
+        Self.build(values: pointer, start: 0, end: points.count, depth: 0, tree: &self)
     }
     
-    private static func build( values: UnsafeMutableBufferPointer<Element>, depth: Int, tree: inout Self ) {
-        guard !values.isEmpty else {
+    private static func build( values: UnsafeMutablePointer<Element>, start: Int, end: Int, depth: Int, tree: inout Self ) {
+        guard end > start else {
             tree.nodes.append(.leaf)
             return
         }
         
+        let count = end - start
+        
         let component = depth % Element.dimensions
         
-        if values.count == 1 {
+        if count == 1 {
             let index = tree.nodes.count
             tree.nodes.append( .leaf ) // we'll replace with a full node in a moment
             
@@ -52,10 +55,10 @@ where Element : Vector {
             tree.nodes[index] = .node(left: left, value: values[0], dimension: component, right: right)
         } else {
             // Split along the median
-            var median: Int = values.count / 2
+            var median = start + count / 2
 
             // Partition the elements around the middle index
-            quickSelect(targetIndex: median, values: values, component: component)
+            quickSelect(targetIndex: median, values: values, startIndex: start, endIndex: end, component: component)
             
             // Move past duplicates
             let medianValue = values[median]
@@ -69,10 +72,10 @@ where Element : Vector {
             tree.nodes.append( .leaf )
             
             let left = Int32(tree.nodes.count)
-            build(values: .init(rebasing: values.prefix(upTo: median)), depth: depth + 1, tree: &tree)
+            build(values: values, start: start, end: median, depth: depth + 1, tree: &tree)
             
             let right = Int32(tree.nodes.count)
-            build(values: .init(rebasing: values.suffix(from: median + 1)), depth: depth + 1, tree: &tree)
+            build(values: values, start: median + 1, end: end, depth: depth + 1, tree: &tree)
             
             tree.nodes[index] = .node(left: left, value: medianValue, dimension: component, right: right)
         }
@@ -87,21 +90,20 @@ where Element : Vector {
     /// - Parameter startIndex: start index of the region of interest
     /// - Parameter endIndex: end index of the region of interest
     /// - Parameter kdDimension: dimension to evaluate
-    private static func quickSelect(targetIndex: Int, values: UnsafeMutableBufferPointer<Element>, component: Int) {
-        guard values.count > 0 else { return }
+    private static func quickSelect(targetIndex: Int, values: UnsafeMutablePointer<Element>, startIndex: Int, endIndex: Int, component: Int) {
         
-        let partitionIndex = Self.partitionHoare(values, component: component)
+        guard endIndex - startIndex > 1 else { return }
+        
+        let partitionIndex = Self.partitionHoare(values, startIndex: startIndex, endIndex: endIndex, component: component)
         
         if partitionIndex == targetIndex {
             return
         } else if partitionIndex < targetIndex {
             let s = partitionIndex+1
-            quickSelect(targetIndex: targetIndex, values: .init(rebasing: values.suffix(from: s)), component: component)
-//            quickSelect(targetIndex: targetIndex, values: values, startIndex: s, endIndex: endIndex, component: component)
+            quickSelect(targetIndex: targetIndex, values: values, startIndex: s, endIndex: endIndex, component: component)
         } else {
             // partitionIndex is greater than the targetIndex, quickSelect moves to indexes smaller than partitionIndex
-            quickSelect(targetIndex: targetIndex, values: .init(rebasing: values.prefix(upTo: partitionIndex)), component: component)
-//            quickSelect(targetIndex: targetIndex, values: values, startIndex: startIndex, endIndex: partitionIndex, component: component)
+            quickSelect(targetIndex: targetIndex, values: values, startIndex: startIndex, endIndex: partitionIndex, component: component)
         }
     }
     
@@ -119,11 +121,11 @@ where Element : Vector {
     ///   - values: the pointer to the values
     ///   - kdDimension: the dimension sorted over
     /// - Returns: the index of the pivot element in the pointer
-    private static func partitionHoare(_ values: UnsafeMutableBufferPointer<Element>, component: Int) -> Int {
-        let hi = values.count - 1
-        guard values.count > 0 else { return 0 }
+    private static func partitionHoare(_ values: UnsafeMutablePointer<Element>, startIndex lo: Int, endIndex: Int, component: Int) -> Int {
+        let hi = endIndex - 1
+        guard lo < hi else { return lo }
         
-        let randomIndex = Int.random(in: 0...hi)
+        let randomIndex = Int.random(in: lo...hi)
         values.swapAt(hi, randomIndex)
         
         let kdDimensionOfPivot = values[hi].component(component)
@@ -133,14 +135,14 @@ where Element : Vector {
         //   [i+1  ...  j-1] are values we haven't looked at yet,
         //   [j    ..< hi-1] contains all values >= pivot,
         //   [hi           ] is the pivot value.
-        var i = 0
+        var i = lo
         var j = hi - 1
         
         while true {
             while values[i].component(component) < kdDimensionOfPivot {
                 i += 1
             }
-            while 0 < j && values[j].component(component) >= kdDimensionOfPivot {
+            while lo < j && values[j].component(component) >= kdDimensionOfPivot {
                 j -= 1
             }
             guard i < j else {
