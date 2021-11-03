@@ -20,13 +20,13 @@ where Element : Vector {
     enum Node {
         case leaf
         
-        case node(left: Int32, value: Element, dimension: Int, right: Int32)
+        case node(left: Int32, value: Element, right: Int32)
     }
     
     @inlinable
     public init(points: [Element]) {
         self.nodes = []
-        self.nodes.reserveCapacity(200_001)
+        self.nodes.reserveCapacity(points.count)
         
         let pointer = UnsafeMutablePointer<Element>.allocate(capacity: points.count)
         
@@ -49,7 +49,7 @@ where Element : Vector {
         if count == 1 {
             let index = tree.nodes.count
             
-            tree.nodes.append( .node(left: -1, value: values[start], dimension: component, right: -1) )
+            tree.nodes.append( .node(left: -1, value: values[start], right: -1) )
             
             return index
         } else {
@@ -74,7 +74,7 @@ where Element : Vector {
             
             let right = build(values: values, start: median + 1, end: end, depth: depth + 1, tree: &tree)
             
-            tree.nodes[index] = .node(left: Int32(left), value: medianValue, dimension: component, right: Int32(right))
+            tree.nodes[index] = .node(left: Int32(left), value: medianValue, right: Int32(right))
             
             return index
         }

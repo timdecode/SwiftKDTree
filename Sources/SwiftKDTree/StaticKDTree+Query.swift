@@ -13,22 +13,24 @@ extension StaticKDTree {
         
         var result: [Element] = []
         
-        points(within: radius, of: query, node: nodes.first!, points: &result)
+        points(within: radius, of: query, node: nodes.first!, depth: 0, points: &result)
         
         return result
     }
     
-    private func points(within radius: Element.Component, of query: Element, node: Node, points: inout [Element]) {
+    private func points(within radius: Element.Component, of query: Element, node: Node, depth: Int, points: inout [Element]) {
         switch node {
         case .leaf: return
-        case let .node(left, value, k, right):
+        case let .node(left, value, right):
+            let k = depth % Element.dimensions
+            
             let delta = value.component(k) - query.component(k)
             
             let (nearest, other) = delta > 0 ? (left, right) : (right, left)
             
             // check the best estimate (the closer subTree)
             if nearest >= 0 {
-                self.points(within: radius, of: query, node:  nodes[Int(nearest)], points: &points)
+                self.points(within: radius, of: query, node:  nodes[Int(nearest)], depth: depth + 1, points: &points)
             }
             
             // if the search radius intersects the hyperplane of this tree node
@@ -39,7 +41,7 @@ extension StaticKDTree {
                 }
                 
                 if other >= 0 {
-                    self.points(within: radius, of: query, node: nodes[Int(other)], points: &points)
+                    self.points(within: radius, of: query, node: nodes[Int(other)], depth: depth + 1, points: &points)
                 }
             }
             

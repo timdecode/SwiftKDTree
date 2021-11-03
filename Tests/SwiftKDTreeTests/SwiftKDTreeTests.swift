@@ -33,8 +33,6 @@ extension simd_float3: KDTreePoint {
     public func squaredDistance(to otherPoint: SIMD3<Scalar>) -> Double {
         return Double( simd.distance_squared(self, otherPoint) )
     }
-    
-    
 }
 
 final class SwiftKDTreeTests: XCTestCase {
@@ -42,7 +40,7 @@ final class SwiftKDTreeTests: XCTestCase {
     
     override func setUp() {
         timingPoints = (0..<100_000).map { _ in
-            return simd_float3.random(in: -1.0...1.0 )
+            return simd_float3.random(in: -1.0...1.0)
         }
     }
     
