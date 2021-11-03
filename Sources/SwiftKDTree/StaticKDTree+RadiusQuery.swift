@@ -11,15 +11,15 @@ extension StaticKDTree {
     public func points(
         within radius: Element.Component,
         of query: Element,
-        condition: (Element) -> Bool = { _ in true }
+        condition: (Element, Int) -> Bool = { _,_ in true }
     ) -> [Element] {
         guard !nodes.isEmpty else { return [] }
         
         var result: [Element] = []
         
-        points(within: radius, of: query, node: nodes.first!, depth: 0) {
-            if condition($0) {
-                result.append($0)
+        points(within: radius, of: query, node: nodes.first!, depth: 0) { (e, i) in
+            if condition(e, i) {
+                result.append(e)
             }
         }
         
@@ -29,7 +29,7 @@ extension StaticKDTree {
     public func points(
         within radius: Element.Component,
         of query: Element,
-        result: (Element) -> ()
+        result: (Element, Int) -> ()
     ) {
         points(within: radius, of: query, node: nodes.first!, depth: 0, result: result)
     }
@@ -40,11 +40,11 @@ extension StaticKDTree {
         of query: Element,
         node: Node,
         depth: Int,
-        result: (Element) ->  ()
+        result: (Element, Int) ->  ()
     ) {
         switch node {
         case .leaf: return
-        case let .node(left, value, right):
+        case let .node(left, value, index, right):
             let k = depth % Element.dimensions
             
             let delta = value.component(k) - query.component(k)
@@ -60,7 +60,7 @@ extension StaticKDTree {
             // there could be points in the other subtree
             if abs(delta) < radius {
                 if value.distanceSquared(query) <= radius * radius {
-                    result(value)
+                    result(value, index)
                 }
                 
                 if other >= 0 {

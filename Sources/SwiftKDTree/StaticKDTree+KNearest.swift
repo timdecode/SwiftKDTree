@@ -11,7 +11,7 @@ extension StaticKDTree {
     public func nearestK(
         _ k: Int,
         to query: Element,
-        result: inout [(distance: Component, point: Element)],
+        result: inout [(point: Element, index: Int, distance: Component)],
         condition: (Element) -> Bool = { _ in true }
     ) {
         result.removeAll(keepingCapacity: true)
@@ -23,7 +23,7 @@ extension StaticKDTree {
     }
 
     struct KNearest {
-        public typealias ElementPair = (distance: Component, point: Element)
+        public typealias ElementTuple = (point: Element, index: Int, distance: Component)
 
         @usableFromInline let goalNumber: Int
         @usableFromInline var currentSize = 0
@@ -39,13 +39,13 @@ extension StaticKDTree {
             of tree: StaticKDTree,
             node: StaticKDTree.Node,
             depth: Int,
-            nearestValues: inout [ElementPair],
-            where condition: (Element) -> Bool = { _ in true }
+            nearestValues: inout [ElementTuple],
+            where condition: (Element, Int) -> Bool = { _,_ in true }
         ) {
             let dim = depth % Element.dimensions
             
             switch node {
-            case let .node(left, value, right):
+            case let .node(left, value, index, right):
                 let dimensionDifference = value.component(dim) - query.component(dim)
                 let isLeftOfValue = dimensionDifference > 0
                 
@@ -62,10 +62,10 @@ extension StaticKDTree {
                     )
                 }
 
-                if condition(value) {
-                    //check the nodes value
+                if condition(value, index) {
+                    //check the node's value
                     let currentDistance = value.distanceSquared(query)
-                    self.append(value, distance: currentDistance, nearestValues: &nearestValues)
+                    self.append(value, index: index, distance: currentDistance, nearestValues: &nearestValues)
                 }
 
                 //if the bestDistance so far intersects the hyperplane at the other side of this value
@@ -88,11 +88,11 @@ extension StaticKDTree {
             }
         }
         
-        @inlinable mutating func append(_ value: Element, distance: Component, nearestValues: inout [ElementPair]) {
+        @inlinable mutating func append(_ value: Element, index: Int, distance: Component, nearestValues: inout [ElementTuple]) {
             guard !full || distance < biggestDistance else { return }
 
             if let index = nearestValues.firstIndex(where: { return distance < $0.distance }) {
-                nearestValues.insert(ElementPair(distance: distance, point: value), at: index)
+                nearestValues.insert(ElementTuple(point: value, index: index, distance: distance), at: index)
                 if full {
                     nearestValues.removeLast()
                     biggestDistance = nearestValues.last!.distance
@@ -104,7 +104,7 @@ extension StaticKDTree {
             }
             else {
                 //not full so we append at the end
-                nearestValues.append(ElementPair(distance: distance, point: value))
+                nearestValues.append(ElementTuple(point: value, index: index, distance: distance))
                 currentSize += 1
                 full = currentSize >= goalNumber
                 biggestDistance = distance

@@ -14,7 +14,10 @@ where Element : Vector {
     public typealias Component = Element.Component
     
     @usableFromInline
-    internal var nodes: ContiguousArray<Node>
+    internal let nodes: [Node]
+    
+    @usableFromInline
+    internal let indices: [Int]
     
     public var nodeCount: Int { return nodes.count }
     
@@ -22,24 +25,44 @@ where Element : Vector {
     enum Node {
         case leaf
         
-        case node(left: Int32, value: Element, right: Int32)
+        case node(left: Int32, value: Element, index: Int, right: Int32)
+    }
+    
+    @usableFromInline
+    init(nodes: [Node], indices: [Int]) {
+        self.nodes = nodes
+        self.indices = indices
     }
     
     @inlinable
     public init(points: [Element]) {
-        self.nodes = []
-        self.nodes.reserveCapacity(points.count)
+        var nodes: [Node] = []
+        nodes.reserveCapacity(points.count)
         
-        let pointer = UnsafeMutablePointer<Element>.allocate(capacity: points.count)
+        var indices: [Int] = .init(0..<points.count)
+        var points = points
+
+        _ = Self.build(
+            values: &points,
+            indices: &indices,
+            nodes: &nodes,
+            start: 0,
+            end: points.count,
+            depth: 0
+        )
         
-        // copy values from the array
-        pointer.initialize(from: points, count: points.count)
-        
-        _ = Self.build(values: pointer, start: 0, end: points.count, depth: 0, tree: &self)
+        self = .init(nodes: nodes, indices: indices)
     }
     
     @inlinable
-    static func build( values: UnsafeMutablePointer<Element>, start: Int, end: Int, depth: Int, tree: inout Self ) -> Int {
+    static func build(
+        values: UnsafeMutablePointer<Element>,
+        indices: UnsafeMutablePointer<Int>,
+        nodes: inout [Node],
+        start: Int,
+        end: Int,
+        depth: Int
+    ) -> Int {
         guard end > start else {
             return -1
         }
@@ -49,9 +72,9 @@ where Element : Vector {
         let component = depth % Element.dimensions
         
         if count == 1 {
-            let index = tree.nodes.count
+            let index = nodes.count
             
-            tree.nodes.append( .node(left: -1, value: values[start], right: -1) )
+            nodes.append( .node(left: -1, value: values[start], index: indices[start], right: -1) )
             
             return index
         } else {
@@ -59,24 +82,26 @@ where Element : Vector {
             var median = start + count / 2
 
             // Partition the elements around the middle index
-            quickSelect(targetIndex: median, values: values, startIndex: start, endIndex: end, component: component)
+            quickSelect(targetIndex: median, values: values, indices: indices, startIndex: start, endIndex: end, component: component)
             
             // Move past duplicates
             let medianValue = values[median]
             let medianComponent = medianValue.component(component)
-            while median >= 1 && median > 0 && abs(values[median-1].component(component) - medianComponent) < Element.Component.ulpOfOne {
+            while median >= 1
+                    && median > 0
+                    && abs(values[median-1].component(component) - medianComponent) < Element.Component.ulpOfOne {
                 median -= 1
             }
             
             // make room for our node
-            let index = tree.nodes.count
-            tree.nodes.append( .leaf )
+            let index = nodes.count
+            nodes.append( .leaf )
             
-            let left = build(values: values, start: start, end: median, depth: depth + 1, tree: &tree)
+            let left = build(values: values, indices: indices, nodes: &nodes, start: start, end: median, depth: depth + 1)
             
-            let right = build(values: values, start: median + 1, end: end, depth: depth + 1, tree: &tree)
+            let right = build(values: values, indices: indices, nodes: &nodes, start: median + 1, end: end, depth: depth + 1)
             
-            tree.nodes[index] = .node(left: Int32(left), value: medianValue, right: Int32(right))
+            nodes[index] = .node(left: Int32(left), value: medianValue, index: indices[median], right: Int32(right))
             
             return index
         }
@@ -91,20 +116,27 @@ where Element : Vector {
     /// - Parameter startIndex: start index of the region of interest
     /// - Parameter endIndex: end index of the region of interest
     /// - Parameter kdDimension: dimension to evaluate
-    @inlinable static func quickSelect(targetIndex: Int, values: UnsafeMutablePointer<Element>, startIndex: Int, endIndex: Int, component: Int) {
+    @inlinable static func quickSelect(
+        targetIndex: Int,
+        values: UnsafeMutablePointer<Element>,
+        indices: UnsafeMutablePointer<Int>,
+        startIndex: Int,
+        endIndex: Int,
+        component: Int
+    ) {
         
         guard endIndex - startIndex > 1 else { return }
         
-        let partitionIndex = Self.partitionHoare(values, startIndex: startIndex, endIndex: endIndex, component: component)
+        let partitionIndex = Self.partitionHoare(values, indices: indices, startIndex: startIndex, endIndex: endIndex, component: component)
         
         if partitionIndex == targetIndex {
             return
         } else if partitionIndex < targetIndex {
             let s = partitionIndex+1
-            quickSelect(targetIndex: targetIndex, values: values, startIndex: s, endIndex: endIndex, component: component)
+            quickSelect(targetIndex: targetIndex, values: values, indices: indices, startIndex: s, endIndex: endIndex, component: component)
         } else {
             // partitionIndex is greater than the targetIndex, quickSelect moves to indexes smaller than partitionIndex
-            quickSelect(targetIndex: targetIndex, values: values, startIndex: startIndex, endIndex: partitionIndex, component: component)
+            quickSelect(targetIndex: targetIndex, values: values, indices: indices, startIndex: startIndex, endIndex: partitionIndex, component: component)
         }
     }
     
@@ -122,12 +154,19 @@ where Element : Vector {
     ///   - values: the pointer to the values
     ///   - kdDimension: the dimension sorted over
     /// - Returns: the index of the pivot element in the pointer
-    @inlinable static func partitionHoare(_ values: UnsafeMutablePointer<Element>, startIndex lo: Int, endIndex: Int, component: Int) -> Int {
+    @inlinable static func partitionHoare(
+        _ values: UnsafeMutablePointer<Element>,
+        indices: UnsafeMutablePointer<Int>,
+        startIndex lo: Int,
+        endIndex: Int,
+        component: Int
+    ) -> Int {
         let hi = endIndex - 1
         guard lo < hi else { return lo }
         
         let randomIndex = Int.random(in: lo...hi)
         values.swapAt(hi, randomIndex)
+        indices.swapAt(hi, randomIndex)
         
         let kdDimensionOfPivot = values[hi].component(component)
         
@@ -149,13 +188,17 @@ where Element : Vector {
             guard i < j else {
                 break
             }
+            
             values.swapAt(i, j)
+            indices.swapAt(i, j)
         }
         
         // Swap the pivot element with the first element that is >=
         // the pivot. Now the pivot sits between the < and >= regions and the
         // array is properly partitioned.
         values.swapAt(i, hi)
+        indices.swapAt(i, hi)
+        
         return i
     }
     
