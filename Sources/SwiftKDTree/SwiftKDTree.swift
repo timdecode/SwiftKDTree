@@ -11,6 +11,8 @@ public protocol Vector {
 
 public struct StaticKDTree<Element>
 where Element : Vector {
+    public typealias Component = Element.Component
+    
     @usableFromInline
     internal var nodes: ContiguousArray<Node>
     
