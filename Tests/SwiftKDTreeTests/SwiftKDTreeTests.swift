@@ -2,7 +2,7 @@ import XCTest
 import simd
 
 import SwiftKDTree
-import KDTree
+//import KDTree
 
 extension simd_float3: Vector {
     public typealias Component = Float
@@ -25,15 +25,15 @@ extension simd_float3: Vector {
     }
 }
 
-extension simd_float3: KDTreePoint {
-    public func kdDimension(_ dimension: Int) -> Double {
-        return Double(component(dimension))
-    }
-    
-    public func squaredDistance(to otherPoint: SIMD3<Scalar>) -> Double {
-        return Double( simd.distance_squared(self, otherPoint) )
-    }
-}
+//extension simd_float3: KDTreePoint {
+//    public func kdDimension(_ dimension: Int) -> Double {
+//        return Double(component(dimension))
+//    }
+//
+//    public func squaredDistance(to otherPoint: SIMD3<Scalar>) -> Double {
+//        return Double( simd.distance_squared(self, otherPoint) )
+//    }
+//}
 
 final class SwiftKDTreeTests: XCTestCase {
     var timingPoints: [simd_float3] = []
@@ -73,11 +73,11 @@ final class SwiftKDTreeTests: XCTestCase {
         XCTAssertTrue( result.count == answer.count )
     }
 
-    func testBersaelor() throws {
-        measure {
-            let kdTree = KDTree(values: timingPoints)
-        }
-    }
+//    func testBersaelor() throws {
+//        measure {
+//            let kdTree = KDTree(values: timingPoints)
+//        }
+//    }
     
     func testOurs() throws {
         measure {
