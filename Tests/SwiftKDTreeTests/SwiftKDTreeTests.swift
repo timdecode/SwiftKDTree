@@ -4,7 +4,7 @@ import simd
 import SwiftKDTree
 //import KDTree
 
-extension simd_float3: Vector {
+extension simd_float3: KDTreeVector {
     public typealias Component = Float
 
     public static var dimensions: Int {

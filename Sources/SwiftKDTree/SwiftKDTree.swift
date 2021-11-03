@@ -1,6 +1,6 @@
 import CoreImage
 
-public protocol Vector {
+public protocol KDTreeVector {
     associatedtype Component where Component : FloatingPoint
     
     static var dimensions: Int { get }
@@ -10,7 +10,7 @@ public protocol Vector {
 }
 
 public struct StaticKDTree<Element>
-where Element : Vector {
+where Element : KDTreeVector {
     public typealias Component = Element.Component
     
     @usableFromInline
