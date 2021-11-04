@@ -10,17 +10,14 @@ import Foundation
 extension StaticKDTree {
     public func points(
         within radius: Element.Component,
-        of query: Element,
-        condition: (Element, Int) -> Bool = { _,_ in true }
-    ) -> [Element] {
+        of query: Element
+    ) -> [(Element, Int)] {
         guard !nodes.isEmpty else { return [] }
         
-        var result: [Element] = []
+        var result: [(Element, Int)] = []
         
         points(within: radius, of: query, node: nodes.first!, depth: 0) { (e, i) in
-            if condition(e, i) {
-                result.append(e)
-            }
+            result.append((e, i))
         }
         
         return result

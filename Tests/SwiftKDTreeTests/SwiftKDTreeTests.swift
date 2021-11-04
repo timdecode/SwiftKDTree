@@ -59,7 +59,7 @@ final class SwiftKDTreeTests: XCTestCase {
         }
         let answerSet = Set<simd_float3>(answer)
         
-        let result = tree.points(within: radius, of: query)
+        let result = tree.points(within: radius, of: query).map { $0.0 }
         let resultSet = Set<simd_float3>(result)
         
         for p in result {
