@@ -11,13 +11,13 @@ extension StaticKDTree {
     public func points(
         within radius: Element.Component,
         of query: Element
-    ) -> [(Element, Int)] {
+    ) -> [(Int, Element)] {
         guard !nodes.isEmpty else { return [] }
         
-        var result: [(Element, Int)] = []
+        var result: [(Int, Element)] = []
         
-        points(within: radius, of: query, node: nodes.first!, depth: 0) { (e, i) in
-            result.append((e, i))
+        points(within: radius, of: query, node: nodes.first!, depth: 0) { (i, e) in
+            result.append((i, e))
         }
         
         return result
@@ -26,7 +26,7 @@ extension StaticKDTree {
     public func points(
         within radius: Element.Component,
         of query: Element,
-        result: (Element, Int) -> ()
+        result: (Int, Element) -> ()
     ) {
         points(within: radius, of: query, node: nodes.first!, depth: 0, result: result)
     }
@@ -37,7 +37,7 @@ extension StaticKDTree {
         of query: Element,
         node: Node,
         depth: Int,
-        result: (Element, Int) ->  ()
+        result: (Int, Element) ->  ()
     ) {
         switch node {
         case .leaf: return
@@ -56,8 +56,8 @@ extension StaticKDTree {
             // if the search radius intersects the hyperplane of this tree node
             // there could be points in the other subtree
             if abs(delta) < radius {
-                if value.distanceSquared(query) <= radius * radius {
-                    result(value, index)
+                if value.distanceSquared(query) < radius * radius {
+                    result(index, value)
                 }
                 
                 if other >= 0 {

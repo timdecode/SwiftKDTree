@@ -61,7 +61,7 @@ final class SwiftKDTreeTests: XCTestCase {
             }
             let answerSet = Set<simd_float3>(answer)
             
-            let result = tree.points(within: radius, of: query).map { $0.0 }
+            let result = tree.points(within: radius, of: query).map { $0.1 }
             let resultSet = Set<simd_float3>(result)
             
             for p in result {
@@ -73,6 +73,25 @@ final class SwiftKDTreeTests: XCTestCase {
             }
             
             XCTAssertTrue( result.count == answer.count )
+        }
+    }
+    
+    func testPointsWithin_mutuality() throws {
+        let tree = StaticKDTree(points: neighbourPoints)
+        
+        for _ in 0..<10_000 {
+            let query = simd_float3.random(in: -1.0...1.0 )
+            let radius: Float = 0.05
+            
+            let result = tree.points(within: radius, of: query)
+            
+            for (i, p) in result {
+                let others = tree.points(within: radius, of: p)
+                
+                XCTAssert( others.contains(where: { (j, _) in
+                    j == i
+                }))
+            }
         }
     }
     
@@ -89,7 +108,7 @@ final class SwiftKDTreeTests: XCTestCase {
         
         var resultSet = Set<simd_float3>()
         
-        tree.points(within: radius, of: query) { p, i in
+        tree.points(within: radius, of: query) { i, p in
             resultSet.insert(p)
         }
         
@@ -116,7 +135,7 @@ final class SwiftKDTreeTests: XCTestCase {
         
         var result: [Int] = []
         
-        tree.points(within: radius, of: query) { (_, i) in
+        tree.points(within: radius, of: query) { (i, _) in
             result.append(i)
         }
         
@@ -135,7 +154,7 @@ final class SwiftKDTreeTests: XCTestCase {
     
     func testOurs() throws {
         measure {
-            let kdTree = StaticKDTree(points: timingPoints)
+            _ = StaticKDTree(points: timingPoints)
         }
     }
 }
