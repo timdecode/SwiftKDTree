@@ -37,32 +37,63 @@ extension simd_float3: KDTreeVector {
 
 final class SwiftKDTreeTests: XCTestCase {
     var timingPoints: [simd_float3] = []
+    var neighbourPoints: [simd_float3] = []
     
     override func setUp() {
         timingPoints = (0..<100_000).map { _ in
             return simd_float3.random(in: -1.0...1.0)
         }
-    }
-    
-    func testExample() throws {
-        let points: [simd_float3] = (0..<100).map { _ in
+        
+        neighbourPoints = (0..<100_000).map { _ in
             return simd_float3.random(in: -1.0...1.0 )
         }
+    }
+    
+    func testPointsWithin_array() throws {
+        let tree = StaticKDTree(points: neighbourPoints)
         
-        let tree = StaticKDTree(points: points)
+        for _ in 0..<100 {
+            let query = simd_float3.random(in: -1.0...1.0 )
+            let radius: Float = 0.2
+            
+            let answer = neighbourPoints.filter { p in
+                distance(p, query) < radius
+            }
+            let answerSet = Set<simd_float3>(answer)
+            
+            let result = tree.points(within: radius, of: query).map { $0.0 }
+            let resultSet = Set<simd_float3>(result)
+            
+            for p in result {
+                XCTAssertTrue( answerSet.contains(p) )
+            }
+            
+            for p in answer {
+                XCTAssertTrue( resultSet.contains(p) )
+            }
+            
+            XCTAssertTrue( result.count == answer.count )
+        }
+    }
+    
+    func testPointsWithin_callback() throws {
+        let tree = StaticKDTree(points: neighbourPoints)
         
         let query = simd_float3(0.1, 0.1, 0.1)
         let radius: Float = 0.7
         
-        let answer = points.filter { p in
+        let answer = neighbourPoints.filter { p in
             distance(p, query) < radius
         }
         let answerSet = Set<simd_float3>(answer)
         
-        let result = tree.points(within: radius, of: query).map { $0.0 }
-        let resultSet = Set<simd_float3>(result)
+        var resultSet = Set<simd_float3>()
         
-        for p in result {
+        tree.points(within: radius, of: query) { p, i in
+            resultSet.insert(p)
+        }
+        
+        for p in resultSet {
             XCTAssertTrue( answerSet.contains(p) )
         }
         
@@ -70,7 +101,30 @@ final class SwiftKDTreeTests: XCTestCase {
             XCTAssertTrue( resultSet.contains(p) )
         }
         
+        XCTAssertTrue( resultSet.count == answer.count )
+    }
+    
+    func testPointsWithin_indices() throws {
+        let tree = StaticKDTree(points: neighbourPoints)
+        
+        let query = simd_float3(0.1, 0.1, 0.1)
+        let radius: Float = 0.7
+        
+        let answer = Set<Int>(neighbourPoints.enumerated().filter { (i,p) in
+            distance(p, query) < radius
+        }.map { $0.offset } )
+        
+        var result: [Int] = []
+        
+        tree.points(within: radius, of: query) { (_, i) in
+            result.append(i)
+        }
+        
         XCTAssertTrue( result.count == answer.count )
+
+        for i in result {
+            XCTAssertTrue( answer.contains(i))
+        }
     }
 
 //    func testBersaelor() throws {
