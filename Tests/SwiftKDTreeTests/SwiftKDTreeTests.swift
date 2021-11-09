@@ -75,6 +75,18 @@ final class SwiftKDTreeTests: XCTestCase {
             points.append(points.randomElement(using: &generator)!)
         }
         
+        // add some difficult cases
+        for c in 0..<3 {
+            let v = points[0][c]
+
+            var point = simd_float3.random(in: -1.0...1.0, using: &generator)
+
+            // duplicate a dimension
+            point[c] = v
+
+            points.append(point)
+        }
+        
         let kdTree = StaticKDTree(points: points)
         
         // queries
@@ -94,7 +106,7 @@ final class SwiftKDTreeTests: XCTestCase {
             let radius: Float = 0.2
             
             let answer = neighbourPoints.filter { p in
-                distance(p, query) < radius
+                distance_squared(p, query) < radius * radius + Float.ulpOfOne
             }
             let answerSet = Set<simd_float3>(answer)
             

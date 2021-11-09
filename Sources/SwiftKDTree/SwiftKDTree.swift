@@ -87,8 +87,11 @@ where Element : KDTreeVector {
             // Move past duplicates
             let medianValue = values[median]
             let medianComponent = medianValue.component(component)
+
             while median >= 1
                     && median > start
+                    // Actually, this is incorrect, this usage of .ulpOfOne does not correctly handle edge
+                    // cases, there is an implementation in Swift Numerics that does this right.
                     && abs(values[median-1].component(component) - medianComponent) < Element.Component.ulpOfOne {
                 median -= 1
             }
@@ -101,7 +104,7 @@ where Element : KDTreeVector {
             
             let right = build(values: values, indices: indices, nodes: &nodes, start: median + 1, end: end, depth: depth + 1)
             
-            nodes[index] = .node(left: Int32(left), value: medianValue, index: indices[median], right: Int32(right))
+            nodes[index] = .node(left: Int32(left), value: values[median], index: indices[median], right: Int32(right))
             
             return index
         }

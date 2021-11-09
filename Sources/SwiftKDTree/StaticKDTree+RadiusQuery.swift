@@ -46,7 +46,7 @@ extension StaticKDTree {
             
             let delta = value.component(k) - query.component(k)
             
-            let (nearest, other) = delta > 0 ? (left, right) : (right, left)
+            let (nearest, other) = delta >= -Component.ulpOfOne ? (left, right) : (right, left)
             
             // check the best estimate (the closer subTree)
             if nearest >= 0 {
@@ -55,8 +55,8 @@ extension StaticKDTree {
             
             // if the search radius intersects the hyperplane of this tree node
             // there could be points in the other subtree
-            if abs(delta) < radius {
-                if value.distanceSquared(query) <= radius * radius {
+            if delta * delta <= radius * radius + Component.ulpOfOne{
+                if value.distanceSquared(query) <= radius * radius + Component.ulpOfOne {
                     result(index, value)
                 }
                 
