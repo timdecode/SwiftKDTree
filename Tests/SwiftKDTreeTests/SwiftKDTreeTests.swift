@@ -96,6 +96,8 @@ final class SwiftKDTreeTests: XCTestCase {
             queries.append(points.randomElement(using: &generator)!)
         }
         
+        queries.append(contentsOf: points.suffix(3))
+        
         testData = .init(points: points, tree: kdTree, queries: queries)
         
         
@@ -126,8 +128,7 @@ final class SwiftKDTreeTests: XCTestCase {
     }
     
     func testPointsWithin_mutualality() throws {
-        for _ in 0..<10_000 {
-            let query = simd_float3.random(in: -1.0...1.0 )
+        for query in queryPoints {
             let radius: Float = 0.05
             
             let result = tree.points(within: radius, of: query)
@@ -172,23 +173,24 @@ final class SwiftKDTreeTests: XCTestCase {
     }
     
     func testPointsWithin_indices() throws {
-        let query = simd_float3(0.1, 0.1, 0.1)
-        let radius: Float = 0.7
-        
-        let answer = Set<Int>(neighbourPoints.enumerated().filter { (i,p) in
-            distance(p, query) < radius
-        }.map { $0.offset } )
-        
-        var result: [Int] = []
-        
-        tree.points(within: radius, of: query) { (i, _) in
-            result.append(i)
-        }
-        
-        XCTAssertTrue( result.count == answer.count )
-
-        for i in result {
-            XCTAssertTrue( answer.contains(i))
+        for query in queryPoints {
+            let radius: Float = 0.7
+            
+            let answer = Set<Int>(neighbourPoints.enumerated().filter { (i,p) in
+                distance_squared(p, query) < radius * radius + Float.ulpOfOne
+            }.map { $0.offset } )
+            
+            var result: [Int] = []
+            
+            tree.points(within: radius, of: query) { (i, _) in
+                result.append(i)
+            }
+            
+            XCTAssertTrue( result.count == answer.count )
+            
+            for i in result {
+                XCTAssertTrue( answer.contains(i))
+            }
         }
     }
 
