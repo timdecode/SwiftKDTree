@@ -2,7 +2,20 @@ import XCTest
 import simd
 
 import SwiftKDTree
-//import KDTree
+
+struct RandomNumberGeneratorWithSeed: RandomNumberGenerator {
+    init(seed: Int) {
+        // Set the random seed
+        srand48(seed)
+    }
+    
+    func next() -> UInt64 {
+        // drand48() returns a Double, transform to UInt64
+        return withUnsafeBytes(of: drand48()) { bytes in
+            bytes.load(as: UInt64.self)
+        }
+    }
+}
 
 extension simd_float3: KDTreeVector {
     public typealias Component = Float
@@ -25,33 +38,53 @@ extension simd_float3: KDTreeVector {
     }
 }
 
-//extension simd_float3: KDTreePoint {
-//    public func kdDimension(_ dimension: Int) -> Double {
-//        return Double(component(dimension))
-//    }
-//
-//    public func squaredDistance(to otherPoint: SIMD3<Scalar>) -> Double {
-//        return Double( simd.distance_squared(self, otherPoint) )
-//    }
-//}
-
 final class SwiftKDTreeTests: XCTestCase {
-    var timingPoints: [simd_float3] = []
-    var neighbourPoints: [simd_float3] = []
-    
-    override func setUp() {
-        timingPoints = (0..<100_000).map { _ in
-            return simd_float3.random(in: -1.0...1.0)
+    struct TestData {
+        let points: [simd_float3]
+        let tree: StaticKDTree<simd_float3>
+        let queries: [simd_float3]
+        
+        init() {
+            self.points = []
+            self.tree = .init(points: [])
+            self.queries = []
         }
         
-        neighbourPoints = (0..<100_000).map { _ in
-            return simd_float3.random(in: -1.0...1.0 )
+        init(points: [simd_float3], tree: StaticKDTree<simd_float3>, queries: [simd_float3]) {
+            self.points = points
+            self.tree = tree
+            self.queries = queries
         }
     }
     
-    func testPointsWithin_array() throws {
-        let tree = StaticKDTree(points: neighbourPoints)
+    static var testData: TestData = .init()
+    
+    var tree: StaticKDTree<simd_float3> { Self.testData.tree }
+    var neighbourPoints: [simd_float3] { Self.testData.points }
+    var queryPoints: [simd_float3] { Self.testData.queries }
+    
+    override class func setUp() {
+        var generator = RandomNumberGeneratorWithSeed(seed: 44)
         
+        var points = (0..<100_000).map { _ in
+            return simd_float3.random(in: -1.0...1.0, using: &generator)
+        }
+        
+        // append some duplicates
+        for _ in 0..<1000 {
+            points.append(points.randomElement(using: &generator)!)
+        }
+        
+        let kdTree = StaticKDTree(points: points)
+        
+        let queries: [simd_float3] = (0..<100).map { _ in simd_float3.random(in: -1.0...1.0, using: &generator)}
+        
+        testData = .init(points: points, tree: kdTree, queries: queries)
+        
+        
+    }
+    
+    func testPointsWithin_array() throws {
         for _ in 0..<100 {
             let query = simd_float3.random(in: -1.0...1.0 )
             let radius: Float = 0.2
@@ -76,9 +109,7 @@ final class SwiftKDTreeTests: XCTestCase {
         }
     }
     
-    func testPointsWithin_mutuality() throws {
-        let tree = StaticKDTree(points: neighbourPoints)
-        
+    func testPointsWithin_mutualality() throws {
         for _ in 0..<10_000 {
             let query = simd_float3.random(in: -1.0...1.0 )
             let radius: Float = 0.05
@@ -96,8 +127,6 @@ final class SwiftKDTreeTests: XCTestCase {
     }
     
     func testPointsWithin_callback() throws {
-        let tree = StaticKDTree(points: neighbourPoints)
-        
         let query = simd_float3(0.1, 0.1, 0.1)
         let radius: Float = 0.7
         
@@ -106,10 +135,12 @@ final class SwiftKDTreeTests: XCTestCase {
         }
         let answerSet = Set<simd_float3>(answer)
         
+        var result: [simd_float3] = []
         var resultSet = Set<simd_float3>()
         
-        tree.points(within: radius, of: query) { i, p in
+        tree.points(within: radius, of: query) { _, p in
             resultSet.insert(p)
+            result.append(p)
         }
         
         for p in resultSet {
@@ -120,12 +151,11 @@ final class SwiftKDTreeTests: XCTestCase {
             XCTAssertTrue( resultSet.contains(p) )
         }
         
-        XCTAssertTrue( resultSet.count == answer.count )
+        XCTAssertTrue( answer.count == result.count )
+        XCTAssertTrue( result.count == answer.count )
     }
     
     func testPointsWithin_indices() throws {
-        let tree = StaticKDTree(points: neighbourPoints)
-        
         let query = simd_float3(0.1, 0.1, 0.1)
         let radius: Float = 0.7
         
@@ -146,16 +176,5 @@ final class SwiftKDTreeTests: XCTestCase {
         }
     }
 
-//    func testBersaelor() throws {
-//        measure {
-//            let kdTree = KDTree(values: timingPoints)
-//        }
-//    }
-    
-    func testOurs() throws {
-        measure {
-            _ = StaticKDTree(points: timingPoints)
-        }
-    }
 }
 

@@ -88,7 +88,7 @@ where Element : KDTreeVector {
             let medianValue = values[median]
             let medianComponent = medianValue.component(component)
             while median >= 1
-                    && median > 0
+                    && median > start
                     && abs(values[median-1].component(component) - medianComponent) < Element.Component.ulpOfOne {
                 median -= 1
             }

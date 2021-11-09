@@ -56,7 +56,7 @@ extension StaticKDTree {
             // if the search radius intersects the hyperplane of this tree node
             // there could be points in the other subtree
             if abs(delta) < radius {
-                if value.distanceSquared(query) < radius * radius {
+                if value.distanceSquared(query) <= radius * radius {
                     result(index, value)
                 }
                 
