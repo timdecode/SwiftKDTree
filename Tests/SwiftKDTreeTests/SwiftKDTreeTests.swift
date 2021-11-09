@@ -64,7 +64,7 @@ final class SwiftKDTreeTests: XCTestCase {
     var queryPoints: [simd_float3] { Self.testData.queries }
     
     override class func setUp() {
-        var generator = RandomNumberGeneratorWithSeed(seed: 44)
+        var generator = RandomNumberGeneratorWithSeed(seed: 49)
         
         var points = (0..<100_000).map { _ in
             return simd_float3.random(in: -1.0...1.0, using: &generator)
@@ -77,7 +77,12 @@ final class SwiftKDTreeTests: XCTestCase {
         
         let kdTree = StaticKDTree(points: points)
         
-        let queries: [simd_float3] = (0..<100).map { _ in simd_float3.random(in: -1.0...1.0, using: &generator)}
+        // queries
+        var queries: [simd_float3] = (0..<100).map { _ in simd_float3.random(in: -1.0...1.0, using: &generator)}
+        // add some points from the main points
+        for _ in 0..<100 {
+            queries.append(points.randomElement(using: &generator)!)
+        }
         
         testData = .init(points: points, tree: kdTree, queries: queries)
         
@@ -85,8 +90,7 @@ final class SwiftKDTreeTests: XCTestCase {
     }
     
     func testPointsWithin_array() throws {
-        for _ in 0..<100 {
-            let query = simd_float3.random(in: -1.0...1.0 )
+        for query in queryPoints {
             let radius: Float = 0.2
             
             let answer = neighbourPoints.filter { p in
