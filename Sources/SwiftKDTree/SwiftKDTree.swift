@@ -5,6 +5,8 @@ public protocol KDTreeVector {
     
     static var dimensions: Int { get }
     
+    static var zero: Self { get }
+    
     func component(_ index: Int) -> Component
     
     subscript(_ index: Int) -> Component { get set }

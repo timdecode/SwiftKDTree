@@ -271,29 +271,29 @@ final class KDTreeCollectionTests: XCTestCase {
         }
     }
     
-//    func testPointsWithin_array() throws {
-//        for query in queryPoints {
-//            let radius: Float = 0.2
-//
-//            let answer = neighbourPoints.filter { p in
-//                distance_squared(p, query) < radius * radius + Float.ulpOfOne
-//            }
-//            let answerSet = Set<simd_float3>(answer)
-//
-//            let result = tree.points(within: radius, of: query).map { $0.1 }
-//            let resultSet = Set<simd_float3>(result)
-//
-//            for p in result {
-//                XCTAssertTrue( answerSet.contains(p) )
-//            }
-//
-//            for p in answer {
-//                XCTAssertTrue( resultSet.contains(p) )
-//            }
-//
-//            XCTAssertTrue( result.count == answer.count )
-//        }
-//    }
+    func testPointsWithin_array() throws {
+        for query in queryPoints {
+            let radius: Float = 0.2
+
+            let answer = neighbourPoints.filter { p in
+                distance_squared(p, query) < radius * radius + Float.ulpOfOne
+            }
+            let answerSet = Set<simd_float3>(answer)
+
+            let result = tree.points(within: radius, of: query).map { $0.1 }
+            let resultSet = Set<simd_float3>(result)
+
+            for p in result {
+                XCTAssertTrue( answerSet.contains(p) )
+            }
+
+            for p in answer {
+                XCTAssertTrue( resultSet.contains(p) )
+            }
+
+            XCTAssertTrue( result.count == answer.count )
+        }
+    }
 //
 //    func testPointsWithin_mutualality() throws {
 //        for query in queryPoints {

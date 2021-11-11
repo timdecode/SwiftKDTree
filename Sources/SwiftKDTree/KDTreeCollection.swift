@@ -53,7 +53,13 @@ where Element : KDTreeVector {
     internal let indices: [Int]
     
     @usableFromInline
+    internal let points: [Element]
+    
+    @usableFromInline
     let maxLeafSize: Int
+
+    @usableFromInline
+    let EPS: Component = 0.00001
     
     @usableFromInline
     enum Node {
@@ -73,6 +79,7 @@ where Element : KDTreeVector {
         
         guard points.count > 0 else {
             self.nodes = []
+            self.points = []
             
             return
         }
@@ -86,9 +93,18 @@ where Element : KDTreeVector {
             partialResult.append(vec)
         }
         
-        _ = Self.divideTree(nodes: &nodes, dataset: &points, left: 0, right: points.count, bounds: &bounds, maxLeafSize: maxLeafSize)
+        _ = Self.divideTree(
+            nodes: &nodes,
+            dataset: &points,
+            left: 0,
+            right: points.count,
+            bounds: &bounds,
+            maxLeafSize: maxLeafSize,
+            EPS: EPS
+        )
         
         self.nodes = nodes
+        self.points = points
     }
     
     @inlinable
@@ -98,7 +114,8 @@ where Element : KDTreeVector {
         left: Int,
         right: Int,
         bounds: inout AABB<Element>,
-        maxLeafSize: Int
+        maxLeafSize: Int,
+        EPS: Component
     ) -> Int {
         let index = nodes.count
         
@@ -116,7 +133,8 @@ where Element : KDTreeVector {
                 dataset: dataset,
                 ind: left,
                 count: right - left,
-                bounds: bounds
+                bounds: bounds,
+                EPS: EPS
             )
             
             nodes.append( .unitilized )
@@ -129,7 +147,8 @@ where Element : KDTreeVector {
                 left: left,
                 right: left + idx,
                 bounds: &leftBounds,
-                maxLeafSize: maxLeafSize
+                maxLeafSize: maxLeafSize,
+                EPS: EPS
             )
             
             var rightBounds = bounds
@@ -140,7 +159,8 @@ where Element : KDTreeVector {
                 left: left + idx,
                 right: right,
                 bounds: &rightBounds,
-                maxLeafSize: maxLeafSize
+                maxLeafSize: maxLeafSize,
+                EPS: EPS
             )
             
             nodes[index] = .node(
@@ -160,9 +180,9 @@ where Element : KDTreeVector {
         dataset: UnsafeMutablePointer<Element>,
         ind: Int,
         count: Int,
-        bounds: AABB<Element>
+        bounds: AABB<Element>,
+        EPS: Component
     ) -> (index: Int, cutFeature: Int, cutValue: Component) {
-        let EPS: Component = 0.00001
         
         let maxSpan = bounds.maxSpan
         
@@ -295,5 +315,132 @@ where Element : KDTreeVector {
         }
         
         return (minElement, maxElement)
+    }
+    
+    public func points(
+        within radius: Component,
+        of query: Element
+    ) -> [(Int, Element)] {
+        var result: [(Int, Element)] = []
+        
+        let radiusSqrd = radius * radius
+        
+        points(within: radius, of: query) { i, distSqrd in
+            if distSqrd < radiusSqrd {
+                result.append((i, points[i]))
+            }
+
+            return true
+        }
+        
+        return result
+    }
+    
+    public func points(
+        within radius: Element.Component,
+        of query: Element,
+        result: (Int, Component) -> (Bool)
+    ) {
+        if nodes.isEmpty { return }
+        
+        var distanceVec: Element = .zero
+        
+        let epsError = 1.0 - EPS
+        
+        let radiusSqrd = radius * radius
+
+        
+        _ = searchLevel(of: query, node: 0, minDistanceSqrd: 0, distanceVector: &distanceVec, worstDistance: {radius}, epsError: epsError, result: result)
+        
+//        points(within: radius, of: query, node: nodes.first!, depth: 0, result: result)
+    }
+    
+    /// Searches the tree.
+    /// - Parameters:
+    ///   - query: The query point.
+    ///   - nodeIndex: The node to search from.
+    ///   - minDistanceSqrd: The current min squared distance of the search.
+    ///   - distanceVector: The accumulated minimum distance vector. Set this to ``KDTreeVector.zero`` when calling this function manually.
+    ///   - worstDistance: The worst distance in the result (you could pass a constant vector if you wish).
+    ///   - epsError: The smallest error to allow in comparisons.
+    ///   - result: A result call back. Return false from this callback to exit the search.
+    /// - Returns: Whether we should stop searching.
+    func searchLevel(
+        of query: Element,
+        node nodeIndex: Int,
+        minDistanceSqrd: Component,
+        distanceVector: inout Element,
+        worstDistance: () -> Component,
+        epsError: Component,
+        result: (Int, Component) -> (Bool)
+    ) -> Bool {
+        let node = nodes[nodeIndex]
+        
+        switch node {
+        case let .leaf(start: start, end: end):
+            for i in start..<end {
+                let dist = query.distanceSquared(points[i])
+                
+                if !result(i, dist) {
+                    // The result doesn't want anything more, we're done
+                    return false
+                }
+            }
+
+            // Keep searching
+            return true
+            
+        case let .node(child1: child1, child2: child2, dimension: d, min: divMin, max: divMax):
+            // Which branch to take first?
+            let val = query[d]
+            
+            let diff1 = val - divMin
+            let diff2 = val - divMax
+            
+            var cutDist: Component = 0.0
+            
+            let (bestChild, otherChild, custDist) = { () -> (Int, Int, Component) in
+                if (diff1 + diff2) < 0 {
+                    let cutDist = (val - divMax) * (val - divMax)
+                    
+                    return (child1, child2, cutDist)
+                } else {
+                    let cutDist = (val - divMin) * (val - divMin)
+                    
+                    return (child2, child1, cutDist)
+                }
+            }()
+            
+            // Recurse
+            if !searchLevel(
+                of: query,
+                node: bestChild,
+                minDistanceSqrd: minDistanceSqrd,
+                distanceVector: &distanceVector,
+                worstDistance: worstDistance,
+                epsError: epsError,
+                result: result
+            ) { return false }
+            
+            let distance = distanceVector[d]
+            let minDistanceSqrd = minDistanceSqrd + cutDist - distance
+            if minDistanceSqrd * epsError <= worstDistance() {
+                if !searchLevel(
+                    of: query,
+                    node: otherChild,
+                    minDistanceSqrd: minDistanceSqrd,
+                    distanceVector: &distanceVector,
+                    worstDistance: worstDistance,
+                    epsError: epsError,
+                    result: result
+                ) { return false }
+            }
+            
+            distanceVector[d] = distance
+            
+            return true
+        case .unitilized: fatalError()
+            
+        }
     }
 }
