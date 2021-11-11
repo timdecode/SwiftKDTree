@@ -276,7 +276,7 @@ final class KDTreeCollectionTests: XCTestCase {
             let radius: Float = 0.2
 
             let answer = neighbourPoints.filter { p in
-                distance_squared(p, query) < radius * radius + Float.ulpOfOne
+                distance_squared(p, query) * (1.0 - tree.EPS) < radius * radius
             }
             let answerSet = Set<simd_float3>(answer)
 
@@ -316,7 +316,7 @@ final class KDTreeCollectionTests: XCTestCase {
         let radius: Float = 0.7
 
         let answer = neighbourPoints.filter { p in
-            distance(p, query) < radius
+            distance_squared(p, query) * (1.0 - tree.EPS) < radius * radius
         }
         let answerSet = Set<simd_float3>(answer)
 
@@ -327,6 +327,7 @@ final class KDTreeCollectionTests: XCTestCase {
             resultSet.insert(p)
             result.append(p)
             
+            // keep searching
             return true
         }
 
@@ -341,27 +342,29 @@ final class KDTreeCollectionTests: XCTestCase {
         XCTAssertTrue( answer.count == result.count )
         XCTAssertTrue( result.count == answer.count )
     }
-//
-//    func testPointsWithin_indices() throws {
-//        for query in queryPoints {
-//            let radius: Float = 0.7
-//
-//            let answer = Set<Int>(neighbourPoints.enumerated().filter { (i,p) in
-//                distance_squared(p, query) < radius * radius + Float.ulpOfOne
-//            }.map { $0.offset } )
-//
-//            var result: [Int] = []
-//
-//            tree.points(within: radius, of: query) { (i, _) in
-//                result.append(i)
-//            }
-//
-//            XCTAssertTrue( result.count == answer.count )
-//
-//            for i in result {
-//                XCTAssertTrue( answer.contains(i))
-//            }
-//        }
-//    }
+
+    func testPointsWithin_indices() throws {
+        for query in queryPoints {
+            let radius: Float = 0.7
+
+            let answer = Set<Int>(neighbourPoints.enumerated().filter { (i,p) in
+                distance_squared(p, query) * (1.0 - tree.EPS) < radius * radius
+            }.map { $0.offset } )
+
+            var result: [Int] = []
+
+            tree.points(within: radius, of: query) { (i, _) in
+                result.append(i)
+                
+                return true
+            }
+
+            XCTAssertTrue( result.count == answer.count )
+
+            for i in result {
+                XCTAssertTrue( answer.contains(i))
+            }
+        }
+    }
 
 }

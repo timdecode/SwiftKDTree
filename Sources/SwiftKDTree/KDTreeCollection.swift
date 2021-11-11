@@ -59,7 +59,9 @@ where Element : KDTreeVector {
     let maxLeafSize: Int
 
     @usableFromInline
-    let EPS: Component = 0.00001
+    let bounds: AABB<Element>
+
+    public let EPS: Component
     
     @usableFromInline
     enum Node {
@@ -73,19 +75,25 @@ where Element : KDTreeVector {
     }
     
     @inlinable
-    public init(points: [Element], maxLeafSize: Int) {
-        self.maxLeafSize = maxLeafSize
-        self.indices = []
-        
+    public init(points: [Element], maxLeafSize: Int, EPS: Component = 0.00001) {
         guard points.count > 0 else {
             self.nodes = []
             self.points = []
+            self.indices = []
+            self.maxLeafSize = maxLeafSize
+            self.EPS = EPS
+            self.bounds = .init(min: .zero, max: .zero)
             
             return
         }
         
+        self.maxLeafSize = maxLeafSize
+        self.EPS = EPS
+        
         var nodes: [Node] = []
         nodes.reserveCapacity(points.count)
+        
+        var indices: [Int] = .init(0..<points.count)
 
         var points: [Element] = points
         
@@ -96,6 +104,7 @@ where Element : KDTreeVector {
         _ = Self.divideTree(
             nodes: &nodes,
             dataset: &points,
+            dataIndices: &indices,
             left: 0,
             right: points.count,
             bounds: &bounds,
@@ -105,12 +114,15 @@ where Element : KDTreeVector {
         
         self.nodes = nodes
         self.points = points
+        self.indices = indices
+        self.bounds = bounds
     }
     
     @inlinable
     static func divideTree(
         nodes: inout [Node],
         dataset: UnsafeMutablePointer<Element>,
+        dataIndices: UnsafeMutablePointer<Int>,
         left: Int,
         right: Int,
         bounds: inout AABB<Element>,
@@ -131,6 +143,7 @@ where Element : KDTreeVector {
         } else {
             let (idx, cutFeature, cutValue) = middleSplit(
                 dataset: dataset,
+                dataIndices: dataIndices,
                 ind: left,
                 count: right - left,
                 bounds: bounds,
@@ -144,6 +157,7 @@ where Element : KDTreeVector {
             let child1 = divideTree(
                 nodes: &nodes,
                 dataset: dataset,
+                dataIndices: dataIndices,
                 left: left,
                 right: left + idx,
                 bounds: &leftBounds,
@@ -156,6 +170,7 @@ where Element : KDTreeVector {
             let child2 = divideTree(
                 nodes: &nodes,
                 dataset: dataset,
+                dataIndices: dataIndices,
                 left: left + idx,
                 right: right,
                 bounds: &rightBounds,
@@ -178,6 +193,7 @@ where Element : KDTreeVector {
     @inlinable
     static func middleSplit(
         dataset: UnsafeMutablePointer<Element>,
+        dataIndices: UnsafeMutablePointer<Int>,
         ind: Int,
         count: Int,
         bounds: AABB<Element>,
@@ -222,7 +238,7 @@ where Element : KDTreeVector {
         
         
         let index: Int = {
-            let (lim1, lim2) = planeSplit(dataset: dataset, ind: ind, count: count, cutFeature: cutFeature, cutValue: cutValue)
+            let (lim1, lim2) = planeSplit(dataset: dataset, dataIndices: dataIndices, ind: ind, count: count, cutFeature: cutFeature, cutValue: cutValue)
 
             if lim1 > count / 2 {
                 return lim1
@@ -239,6 +255,7 @@ where Element : KDTreeVector {
     @inlinable
     static func planeSplit(
         dataset: UnsafeMutablePointer<Element>,
+        dataIndices: UnsafeMutablePointer<Int>,
         ind: Int,
         count: Int,
         cutFeature: Int,
@@ -268,7 +285,7 @@ where Element : KDTreeVector {
         
         // If either list is empty, it means that all remaining features
         // are identical. Split in the middle to maintain a balanced tree.
-        var lim1 = left
+        let lim1 = left
         right = count - 1
         while true {
             while left <= right && dataset[ind + left][cutFeature] <= cutValue {
@@ -284,6 +301,7 @@ where Element : KDTreeVector {
             }
             
             dataset.swapAt(ind + left, ind + right)
+            dataIndices.swapAt(ind + left, ind + right)
             
             left += 1
             right -= 1
@@ -325,21 +343,15 @@ where Element : KDTreeVector {
         
         let radiusSqrd = radius * radius
         
-        
-        
         if nodes.isEmpty { return [] }
-        
-        var distanceVec: Element = .zero
-        
-        let epsError = 1.0 - EPS
 
-        _ = searchLevel(of: query, node: 0, minDistanceSqrd: 0, distanceVector: &distanceVec, worstDistance: {radius}, epsError: epsError, result: { i, distSqrd in
+        search(query: query, wordDistance: {radiusSqrd}) { i, distSqrd in
             if distSqrd < radiusSqrd {
-                result.append((i, points[i]))
+                result.append((indices[i], points[i]))
             }
 
             return true
-        })
+        }
         
         return result
     }
@@ -351,32 +363,63 @@ where Element : KDTreeVector {
     ) {
         if nodes.isEmpty { return }
         
-        var distanceVec: Element = .zero
-        
-        let epsError = 1.0 - EPS
-        
         let radiusSqrd = radius * radius
 
-        _ = searchLevel(of: query, node: 0, minDistanceSqrd: 0, distanceVector: &distanceVec, worstDistance: {radius}, epsError: epsError, result: { i, distSqrd in
+        search(query: query, wordDistance: {radiusSqrd}) { i, distSqrd in
             if distSqrd < radiusSqrd {
-                return result(i, points[i])
+                return result(indices[i], points[i])
             }
             
             return true
-        })
-        
-//        points(within: radius, of: query, node: nodes.first!, depth: 0, result: result)
+        }
     }
     
-    /// Searches the tree.
+    func initialDistance(query: Element) -> (distanceSqrd: Component, distanceVector: Element) {
+        var distanceSqrd: Component = 0.0
+        var distanceVector: Element = .zero
+        
+        for i in 0..<Element.dimensions {
+            if query[i] < bounds.min[i] {
+                let d = (query[i] - bounds.min[i])
+                distanceVector[i] = d * d
+                distanceSqrd += distanceVector[i]
+            }
+            
+            if query[i] > bounds.max[i] {
+                let d = query[i] - bounds.max[i]
+                
+                distanceVector[i] = d * d
+                distanceSqrd += distanceVector[i]
+            }
+        }
+        
+        return (distanceSqrd, distanceVector)
+    }
+    
+    func search(query: Element, wordDistance: () -> Component, result: (Int, Component) -> (Bool)) {
+        var (distanceSqrd, distanceVector) = initialDistance(query: query)
+        
+        _ = searchLevel(
+            of: query,
+            node: 0,
+            minDistanceSqrd: distanceSqrd,
+            distanceVector: &distanceVector,
+            worstDistance: wordDistance,
+            epsError: self.EPS,
+            result: result
+        )
+    }
+    
+    /// Searches the tree. Use ``initialDistance(query)`` to initialize the ``distanceVector`` and ``minDistanceSqrd`` parameters.
     /// - Parameters:
     ///   - query: The query point.
     ///   - nodeIndex: The node to search from.
     ///   - minDistanceSqrd: The current min squared distance of the search.
-    ///   - distanceVector: The accumulated minimum distance vector. Set this to ``KDTreeVector.zero`` when calling this function manually.
+    ///   - distanceVector: The accumulated minimum distance vector.
     ///   - worstDistance: The worst distance in the result (you could pass a constant vector if you wish).
     ///   - epsError: The smallest error to allow in comparisons.
-    ///   - result: A result call back. Return false from this callback to exit the search. The second parameter is the squared distance.
+    ///   - result: A result call back. Return false from this callback to exit the search. The first paramer is an index into ``points`` and ``indices``.
+    ///   The second parameter is the squared distance.
     /// - Returns: Whether we should stop searching.
     func searchLevel(
         of query: Element,
@@ -394,7 +437,7 @@ where Element : KDTreeVector {
             for i in start..<end {
                 let dist = query.distanceSquared(points[i])
                 
-                if !result(i, dist) {
+                if dist < worstDistance() && !result(i, dist) {
                     // The result doesn't want anything more, we're done
                     return false
                 }
@@ -410,9 +453,7 @@ where Element : KDTreeVector {
             let diff1 = val - divMin
             let diff2 = val - divMax
             
-            var cutDist: Component = 0.0
-            
-            let (bestChild, otherChild, custDist) = { () -> (Int, Int, Component) in
+            let (bestChild, otherChild, cutDist) = { () -> (Int, Int, Component) in
                 if (diff1 + diff2) < 0 {
                     let cutDist = (val - divMax) * (val - divMax)
                     
