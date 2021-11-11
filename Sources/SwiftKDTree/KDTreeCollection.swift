@@ -325,21 +325,29 @@ where Element : KDTreeVector {
         
         let radiusSqrd = radius * radius
         
-        points(within: radius, of: query) { i, distSqrd in
+        
+        
+        if nodes.isEmpty { return [] }
+        
+        var distanceVec: Element = .zero
+        
+        let epsError = 1.0 - EPS
+
+        _ = searchLevel(of: query, node: 0, minDistanceSqrd: 0, distanceVector: &distanceVec, worstDistance: {radius}, epsError: epsError, result: { i, distSqrd in
             if distSqrd < radiusSqrd {
                 result.append((i, points[i]))
             }
 
             return true
-        }
+        })
         
         return result
     }
     
     public func points(
-        within radius: Element.Component,
+        within radius: Component,
         of query: Element,
-        result: (Int, Component) -> (Bool)
+        result: (Int, Element) -> (Bool)
     ) {
         if nodes.isEmpty { return }
         
@@ -349,8 +357,13 @@ where Element : KDTreeVector {
         
         let radiusSqrd = radius * radius
 
-        
-        _ = searchLevel(of: query, node: 0, minDistanceSqrd: 0, distanceVector: &distanceVec, worstDistance: {radius}, epsError: epsError, result: result)
+        _ = searchLevel(of: query, node: 0, minDistanceSqrd: 0, distanceVector: &distanceVec, worstDistance: {radius}, epsError: epsError, result: { i, distSqrd in
+            if distSqrd < radiusSqrd {
+                return result(i, points[i])
+            }
+            
+            return true
+        })
         
 //        points(within: radius, of: query, node: nodes.first!, depth: 0, result: result)
     }
@@ -363,7 +376,7 @@ where Element : KDTreeVector {
     ///   - distanceVector: The accumulated minimum distance vector. Set this to ``KDTreeVector.zero`` when calling this function manually.
     ///   - worstDistance: The worst distance in the result (you could pass a constant vector if you wish).
     ///   - epsError: The smallest error to allow in comparisons.
-    ///   - result: A result call back. Return false from this callback to exit the search.
+    ///   - result: A result call back. Return false from this callback to exit the search. The second parameter is the squared distance.
     /// - Returns: Whether we should stop searching.
     func searchLevel(
         of query: Element,
@@ -411,7 +424,7 @@ where Element : KDTreeVector {
                 }
             }()
             
-            // Recurse
+            // Recurse the best child
             if !searchLevel(
                 of: query,
                 node: bestChild,
@@ -422,8 +435,11 @@ where Element : KDTreeVector {
                 result: result
             ) { return false }
             
+            
+            // Are we within a certain radius to search the other child?
             let distance = distanceVector[d]
             let minDistanceSqrd = minDistanceSqrd + cutDist - distance
+            
             if minDistanceSqrd * epsError <= worstDistance() {
                 if !searchLevel(
                     of: query,

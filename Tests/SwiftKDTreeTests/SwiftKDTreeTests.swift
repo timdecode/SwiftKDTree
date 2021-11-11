@@ -311,34 +311,36 @@ final class KDTreeCollectionTests: XCTestCase {
 //        }
 //    }
 //
-//    func testPointsWithin_callback() throws {
-//        let query = simd_float3(0.1, 0.1, 0.1)
-//        let radius: Float = 0.7
-//
-//        let answer = neighbourPoints.filter { p in
-//            distance(p, query) < radius
-//        }
-//        let answerSet = Set<simd_float3>(answer)
-//
-//        var result: [simd_float3] = []
-//        var resultSet = Set<simd_float3>()
-//
-//        tree.points(within: radius, of: query) { _, p in
-//            resultSet.insert(p)
-//            result.append(p)
-//        }
-//
-//        for p in resultSet {
-//            XCTAssertTrue( answerSet.contains(p) )
-//        }
-//
-//        for p in answer {
-//            XCTAssertTrue( resultSet.contains(p) )
-//        }
-//
-//        XCTAssertTrue( answer.count == result.count )
-//        XCTAssertTrue( result.count == answer.count )
-//    }
+    func testPointsWithin_callback() throws {
+        let query = simd_float3(0.1, 0.1, 0.1)
+        let radius: Float = 0.7
+
+        let answer = neighbourPoints.filter { p in
+            distance(p, query) < radius
+        }
+        let answerSet = Set<simd_float3>(answer)
+
+        var result: [simd_float3] = []
+        var resultSet = Set<simd_float3>()
+
+        tree.points(within: radius, of: query) { _, p in
+            resultSet.insert(p)
+            result.append(p)
+            
+            return true
+        }
+
+        for p in resultSet {
+            XCTAssertTrue( answerSet.contains(p) )
+        }
+
+        for p in answer {
+            XCTAssertTrue( resultSet.contains(p) )
+        }
+
+        XCTAssertTrue( answer.count == result.count )
+        XCTAssertTrue( result.count == answer.count )
+    }
 //
 //    func testPointsWithin_indices() throws {
 //        for query in queryPoints {
