@@ -46,7 +46,6 @@ where Element : KDTreeVector {
     internal let indices: [Int]
     
     let maxLeafSize: Int
-    let dimensions: Int
     
     @usableFromInline
     enum Node {
@@ -54,10 +53,34 @@ where Element : KDTreeVector {
         case leaf(start: Int, end: Int)
         
         /// Dimension of subdivision and the values of subdivision.
-        case node(child1: Int, child2: Int, dimension: Int, low: Float, hight: Float)
+        case node(child1: Int, child2: Int, dimension: Int, min: Component, max: Component)
+        
+        case unitilized
     }
     
-    
+    public init(points: [Element], maxLeafSize: Int) {
+        self.maxLeafSize = maxLeafSize
+        self.indices = []
+        
+        guard points.count > 0 else {
+            self.nodes = []
+            
+            return
+        }
+        
+        var nodes: [Node] = []
+        nodes.reserveCapacity(points.count)
+
+        var points: [Element] = points
+        
+        var bounds: AABB<Element> = points.reduce(into: .init(min: points[0], max:points[0])) { partialResult, vec in
+            partialResult.append(vec)
+        }
+        
+        _ = Self.divideTree(nodes: &nodes, dataset: &points, left: 0, right: points.count, bounds: &bounds, maxLeafSize: maxLeafSize)
+        
+        self.nodes = nodes
+    }
     
     static func divideTree(
         nodes: inout [Node],
@@ -79,7 +102,44 @@ where Element : KDTreeVector {
                 bounds.append(dataset[k])
             }
         } else {
+            let (idx, cutFeature, cutValue) = middleSplit(
+                dataset: dataset,
+                ind: left,
+                count: right - left,
+                bounds: bounds
+            )
             
+            nodes.append( .unitilized )
+            
+            var leftBounds = bounds
+            leftBounds.max[cutFeature] = cutValue
+            let child1 = divideTree(
+                nodes: &nodes,
+                dataset: dataset,
+                left: left,
+                right: left + idx,
+                bounds: &leftBounds,
+                maxLeafSize: maxLeafSize
+            )
+            
+            var rightBounds = bounds
+            rightBounds.min[cutFeature] = cutValue
+            let child2 = divideTree(
+                nodes: &nodes,
+                dataset: dataset,
+                left: left + idx,
+                right: right,
+                bounds: &rightBounds,
+                maxLeafSize: maxLeafSize
+            )
+            
+            nodes[index] = .node(
+                child1: child1,
+                child2: child2,
+                dimension: cutFeature,
+                min: leftBounds.max[cutFeature],
+                max: rightBounds.min[cutFeature]
+            )
         }
         
         return index
