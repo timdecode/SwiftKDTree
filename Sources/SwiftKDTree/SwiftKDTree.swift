@@ -1,11 +1,14 @@
 import CoreImage
 
 public protocol KDTreeVector {
-    associatedtype Component where Component : FloatingPoint
+    associatedtype Component where Component : BinaryFloatingPoint
     
     static var dimensions: Int { get }
     
     func component(_ index: Int) -> Component
+    
+    subscript(_ index: Int) -> Component { get set }
+    
     func distanceSquared(_ other: Self) -> Component
 }
 
