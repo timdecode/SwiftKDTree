@@ -279,6 +279,8 @@ where Element : KDTreeVector {
             }
             
             dataset.swapAt(ind + left, ind + right)
+            dataIndices.swapAt(ind + left, ind + right)
+
             left += 1
             right -= 1
         }
