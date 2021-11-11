@@ -7,15 +7,21 @@
 
 import Foundation
 
+@usableFromInline
 struct AABB<Vector : KDTreeVector> {
+    @usableFromInline
     var min: Vector
+    
+    @usableFromInline
     var max: Vector
     
+    @inlinable
     init(min: Vector, max: Vector) {
         self.min = min
         self.max = max
     }
     
+    @inlinable
     mutating func append(_ point: Vector) {
         for i in 0..<Vector.dimensions {
             self.min[i] = Swift.min(self.min[i], point[i])
@@ -23,6 +29,7 @@ struct AABB<Vector : KDTreeVector> {
         }
     }
     
+    @inlinable
     var maxSpan: Vector.Component {
         var maxSpan = max[0] - min[0]
         
@@ -35,7 +42,7 @@ struct AABB<Vector : KDTreeVector> {
 }
 
 /// A Swift port of nanoflann.
-struct KDTreeCollection<Element>
+public struct KDTreeCollection<Element>
 where Element : KDTreeVector {
     public typealias Component = Element.Component
     
@@ -45,6 +52,7 @@ where Element : KDTreeVector {
     @usableFromInline
     internal let indices: [Int]
     
+    @usableFromInline
     let maxLeafSize: Int
     
     @usableFromInline
@@ -58,6 +66,7 @@ where Element : KDTreeVector {
         case unitilized
     }
     
+    @inlinable
     public init(points: [Element], maxLeafSize: Int) {
         self.maxLeafSize = maxLeafSize
         self.indices = []
@@ -82,6 +91,7 @@ where Element : KDTreeVector {
         self.nodes = nodes
     }
     
+    @inlinable
     static func divideTree(
         nodes: inout [Node],
         dataset: UnsafeMutablePointer<Element>,
@@ -145,6 +155,7 @@ where Element : KDTreeVector {
         return index
     }
     
+    @inlinable
     static func middleSplit(
         dataset: UnsafeMutablePointer<Element>,
         ind: Int,
@@ -205,6 +216,7 @@ where Element : KDTreeVector {
         return (index, cutFeature, cutValue)
     }
     
+    @inlinable
     static func planeSplit(
         dataset: UnsafeMutablePointer<Element>,
         ind: Int,
@@ -247,6 +259,10 @@ where Element : KDTreeVector {
                 right -= 1
             }
             
+            if left > right || right == 0 {
+                break
+            }
+            
             dataset.swapAt(ind + left, ind + right)
             
             left += 1
@@ -256,6 +272,7 @@ where Element : KDTreeVector {
         return (lim1, left)
     }
     
+    @inlinable
     static func computeMinMax(
         dataset: UnsafeMutablePointer<Element>,
         ind: Int,
