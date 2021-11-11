@@ -7,3 +7,4 @@ DerivedData/
 .swiftpm/xcode/*
 Packages.resolved
 Package.resolved
+.swiftpm/xcode/xcshareddata/xcschemes/SwiftKDTree.xcscheme
