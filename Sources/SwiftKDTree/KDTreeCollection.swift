@@ -401,8 +401,8 @@ where Element : KDTreeVector {
     func search(query: Element, wordDistance: () -> Component, result: (Int, Component) -> (Bool)) {
         var (distanceSqrd, distanceVector) = initialDistance(query: query)
         
-        _ = searchLevel(
-            of: query,
+        _ = _searchLevel(
+            query: query,
             node: 0,
             minDistanceSqrd: distanceSqrd,
             distanceVector: &distanceVector,
@@ -423,8 +423,8 @@ where Element : KDTreeVector {
     ///   - result: A result call back. Return false from this callback to exit the search. The first paramer is an index into ``points`` and ``indices``.
     ///   The second parameter is the squared distance.
     /// - Returns: Whether we should stop searching.
-    func searchLevel(
-        of query: Element,
+    func _searchLevel(
+        query: Element,
         node nodeIndex: Int,
         minDistanceSqrd: Component,
         distanceVector: inout Element,
@@ -468,8 +468,8 @@ where Element : KDTreeVector {
             }()
             
             // Recurse the best child
-            if !searchLevel(
-                of: query,
+            if !_searchLevel(
+                query: query,
                 node: bestChild,
                 minDistanceSqrd: minDistanceSqrd,
                 distanceVector: &distanceVector,
@@ -484,8 +484,8 @@ where Element : KDTreeVector {
             let minDistanceSqrd = minDistanceSqrd + cutDist - distance
             
             if minDistanceSqrd * epsError <= worstDistance() {
-                if !searchLevel(
-                    of: query,
+                if !_searchLevel(
+                    query: query,
                     node: otherChild,
                     minDistanceSqrd: minDistanceSqrd,
                     distanceVector: &distanceVector,

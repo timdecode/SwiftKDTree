@@ -391,5 +391,26 @@ final class KDTreeCollectionTests: XCTestCase {
             }
         }
     }
+    
+    func testKNearest() throws {
+        for query in queryPoints {
+            let k = 5
+            
+            var result = KDTreeCollection<simd_float3>.KNearest(k: k)
+            tree.nearest(to: query, result: &result)
+
+            let furthestDistance = result.distancesSqrd.max()!
+
+            let answerFull = neighbourPoints.enumerated().filter { (i,p) in
+                distance_squared(p, query) <= furthestDistance
+            }.map { $0.element }
+            
+            let answer: Set<simd_float3> = .init(answerFull)
+            
+            let resultSet: Set<simd_float3> = .init(result.points)
+            
+            XCTAssertEqual( resultSet, answer )
+        }
+    }
 
 }
