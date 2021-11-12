@@ -107,7 +107,7 @@ extension KDTreeCollection {
     ///   - query: The query point.
     /// - Returns: The k-nearest neighbours to the query.
     public func nearest(k: Int, to query: Element) -> [Int] {
-        var result: KNearest(k: k)
+        var result = KNearest(k: k)
         nearest(to: query, result: &result)
         
         return result.indices
