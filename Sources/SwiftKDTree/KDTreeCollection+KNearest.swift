@@ -99,5 +99,18 @@ extension KDTreeCollection {
     public func nearest(to query: Element, result: inout KNearest) {
         result.nearest(to: query, tree: self)
     }
+    
+    
+    /// Slow version of k-nearest neighbours. For optimtimal performance use ``nearest(to:result:)``.
+    /// - Parameters:
+    ///   - k: The number of neighbours to find.
+    ///   - query: The query point.
+    /// - Returns: The k-nearest neighbours to the query.
+    public func nearest(k: Int, to query: Element) -> [Int] {
+        var result: KNearest(k: k)
+        nearest(to: query, result: &result)
+        
+        return result.indices
+    }
 }
     
