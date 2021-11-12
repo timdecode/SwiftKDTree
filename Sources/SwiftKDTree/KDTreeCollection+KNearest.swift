@@ -9,12 +9,12 @@ import Foundation
 
 extension KDTreeCollection {
     public struct KNearest {
-        public fileprivate(set) var indices: [Int]
-        public fileprivate(set) var points: [Element]
-        public fileprivate(set) var distancesSqrd: [Component]
+        public var indices: [Int]
+        public var points: [Element]
+        public var distancesSqrd: [Component]
         public let k: Int
         
-        
+        @inlinable
         public init(k: Int) {
             self.indices = []
             self.indices.reserveCapacity(k)
@@ -29,12 +29,14 @@ extension KDTreeCollection {
 
         }
         
+        @inlinable
         mutating func reset() {
             indices.removeAll(keepingCapacity: true)
             points.removeAll(keepingCapacity: true)
             distancesSqrd.removeAll(keepingCapacity: true)
         }
         
+        @inlinable
         mutating func nearest(to query: Element, tree: KDTreeCollection) {
             reset()
             
@@ -96,6 +98,7 @@ extension KDTreeCollection {
         }
     }
     
+    @inlinable
     public func nearest(to query: Element, result: inout KNearest) {
         result.nearest(to: query, tree: self)
     }
@@ -106,7 +109,7 @@ extension KDTreeCollection {
     ///   - k: The number of neighbours to find.
     ///   - query: The query point.
     /// - Returns: The k-nearest neighbours to the query.
-    public func nearest(k: Int, to query: Element) -> [Int] {
+    @inlinable public func nearest(k: Int, to query: Element) -> [Int] {
         var result = KNearest(k: k)
         nearest(to: query, result: &result)
         

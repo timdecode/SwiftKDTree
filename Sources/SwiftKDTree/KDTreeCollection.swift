@@ -337,7 +337,7 @@ where Element : KDTreeVector {
         return (minElement, maxElement)
     }
     
-    public func points(
+    @inlinable public func points(
         within radius: Component,
         of query: Element
     ) -> [(Int, Element)] {
@@ -358,7 +358,7 @@ where Element : KDTreeVector {
         return result
     }
     
-    public func points(
+    @inlinable public func points(
         within radius: Component,
         of query: Element,
         result: (Int, Element) -> (Bool)
@@ -376,7 +376,7 @@ where Element : KDTreeVector {
         }
     }
     
-    func initialDistance(query: Element) -> (distanceSqrd: Component, distanceVector: Element) {
+    @inlinable func initialDistance(query: Element) -> (distanceSqrd: Component, distanceVector: Element) {
         var distanceSqrd: Component = 0.0
         var distanceVector: Element = .zero
         
@@ -398,6 +398,7 @@ where Element : KDTreeVector {
         return (distanceSqrd, distanceVector)
     }
     
+    @inlinable
     func search(query: Element, wordDistance: () -> Component, result: (Int, Component) -> (Bool)) {
         var (distanceSqrd, distanceVector) = initialDistance(query: query)
         
@@ -423,7 +424,7 @@ where Element : KDTreeVector {
     ///   - result: A result call back. Return false from this callback to exit the search. The first paramer is an index into ``points`` and ``indices``.
     ///   The second parameter is the squared distance.
     /// - Returns: Whether we should stop searching.
-    func _searchLevel(
+    @inlinable func _searchLevel(
         query: Element,
         node nodeIndex: Int,
         minDistanceSqrd: Component,
