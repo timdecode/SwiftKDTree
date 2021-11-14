@@ -137,8 +137,11 @@ where Element : KDTreeVector {
             
             // compute bounding-box of leaf points
             bounds = .init(min: dataset[left], max: dataset[left])
-            for k in (left + 1)..<right {
-                bounds.append(dataset[k])
+            
+            if left < right {
+                for k in (left + 1)..<right {
+                    bounds.append(dataset[k])
+                }
             }
         } else {
             let (idx, cutFeature, cutValue) = middleSplit(
