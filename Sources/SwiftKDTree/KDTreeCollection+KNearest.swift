@@ -99,7 +99,14 @@ extension KDTreeCollection {
     }
     
     @inlinable
+    /// A fast k-nearest neighbour query. It's fast because we recycle the ``KNearest`` struct from
+    /// previous queries to eliminate extra memory allocations. ``KNearest`` must not be shared
+    /// with multiple threads.
+    /// - Parameters:
+    ///   - query: The query element.
+    ///   - result: A recyclable ``KNearest`` object that contains the result of the query.
     public func nearest(to query: Element, result: inout KNearest) {
+        result.reset()
         result.nearest(to: query, tree: self)
     }
     
