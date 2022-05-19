@@ -11,7 +11,7 @@ extension StaticKDTree {
     public func nearestK(
         _ k: Int,
         to query: Element,
-        result: inout [(point: Element, index: Int, distance: Component)],
+        result: inout [(point: Element, index: Int, distanceSquared: Component)],
         condition: (Element) -> Bool = { _ in true }
     ) {
         result.removeAll(keepingCapacity: true)
@@ -23,7 +23,7 @@ extension StaticKDTree {
     }
 
     struct KNearest {
-        public typealias ElementTuple = (point: Element, index: Int, distance: Component)
+        public typealias ElementTuple = (point: Element, index: Int, distanceSquared: Component)
 
         @usableFromInline let goalNumber: Int
         @usableFromInline var currentSize = 0
@@ -91,11 +91,11 @@ extension StaticKDTree {
         @inlinable mutating func append(_ value: Element, index: Int, distance: Component, nearestValues: inout [ElementTuple]) {
             guard !full || distance < biggestDistance else { return }
 
-            if let index = nearestValues.firstIndex(where: { return distance < $0.distance }) {
-                nearestValues.insert(ElementTuple(point: value, index: index, distance: distance), at: index)
+            if let index = nearestValues.firstIndex(where: { return distance < $0.distanceSquared }) {
+                nearestValues.insert(ElementTuple(point: value, index: index, distanceSquared: distance), at: index)
                 if full {
                     nearestValues.removeLast()
-                    biggestDistance = nearestValues.last!.distance
+                    biggestDistance = nearestValues.last!.distanceSquared
                 }
                 else {
                     currentSize += 1
@@ -104,7 +104,7 @@ extension StaticKDTree {
             }
             else {
                 //not full so we append at the end
-                nearestValues.append(ElementTuple(point: value, index: index, distance: distance))
+                nearestValues.append(ElementTuple(point: value, index: index, distanceSquared: distance))
                 currentSize += 1
                 full = currentSize >= goalNumber
                 biggestDistance = distance
