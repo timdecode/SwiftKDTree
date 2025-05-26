@@ -1,4 +1,3 @@
-import CoreImage
 
 public protocol KDTreeVector {
     associatedtype Component where Component : BinaryFloatingPoint
